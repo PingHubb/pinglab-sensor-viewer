@@ -2,7 +2,7 @@ import {Grid,Recording,displayed,clamp,extent,colour} from './core.js';
 import {SensorSession} from './session.js';
 import {SensorPlot,TracePlot} from './plots.js';
 const $=id=>document.getElementById(id),fmt=v=>Number.isFinite(v)?v.toFixed(3):'undefined';
-const state={grid:new Grid(5,5),raw:[],baseline:[],values:[],history:[],frozen:null,hasData:false,selected:12,mode:'difference',view:'smooth_map',palette:'jet',range:100,gain:1,numbers:true,window:20,source:null};
+const state={grid:new Grid(5,5),raw:[],baseline:[],values:[],history:[],frozen:null,hasData:false,selected:12,mode:'difference',view:'smooth_3d',palette:'jet',range:500,gain:1,numbers:true,window:20,source:null};
 let session=null,sessionTask=null,ports=[],recording=null,completed=null,downloadURLs=[],saved=new Set(),connected=false,latest=0,rateStart=0,rateFrames=0,rate=0;
 const getState=()=>state,getTrace=()=>({...state,history:state.frozen||state.history});
 function note(message){$('status').textContent=message;const lines=($('log').textContent+`${new Date().toLocaleTimeString()}  ${message}\n`).split('\n');$('log').textContent=lines.slice(-151).join('\n');$('log').scrollTop=$('log').scrollHeight;}
