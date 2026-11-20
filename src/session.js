@@ -1,5 +1,5 @@
-import {Grid,medianFrames} from './core.js?v=0.1.1';
-import {SerialClient,delay,responseTimeout} from './serial.js?v=0.1.1';
+import {Grid,medianFrames} from './core.js?v=0.1.2';
+import {SerialClient,delay,responseTimeout} from './serial.js?v=0.1.2';
 export class SensorSession {
   constructor({port=null,baud=0,grid=null,demo=false,excludeReferenceColumn=false,onStatus=()=>{},onConnect=()=>{},onPacket=()=>{},onCalibration=()=>{},clientFactory=(port,baud)=>new SerialClient(port,baud)}){
     Object.assign(this,{port,baud,grid,demo,excludeReferenceColumn,onStatus,onConnect,onPacket,onCalibration});

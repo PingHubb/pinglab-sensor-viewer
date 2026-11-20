@@ -1,0 +1,9 @@
+---
+description: Preserve the complete sensor channel counts
+alwaysApply: true
+---
+
+- Use the full channelDrive and channelSensor counts reported by the sensor. Do not automatically subtract 1 from either dimension.
+- ACM5 reports 20 × 20: show and record all 400 taxels, including the last column.
+- Verify channels and frame size before acquisition. Never infer a smaller grid from an incomplete frame.
+- Reference-column exclusion is an explicit opt-in for other hardware only; keep it disabled by default.

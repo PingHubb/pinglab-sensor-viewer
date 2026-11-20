@@ -1,6 +1,7 @@
-import {clamp, colour, extent, normalise, interpolate, displayed} from './core.js?v=0.1.1';
+import {translate as t} from './i18n.js?v=0.1.2';
+import {clamp, colour, extent, normalise, interpolate, displayed} from './core.js?v=0.1.2';
 const css = rgb => `rgb(${rgb.map(Math.round).join(',')})`;
-const text = (ctx,s,x,y,fill='#9aacc2',align='left',size=11) => {ctx.fillStyle=fill;ctx.textAlign=align;ctx.font=`${size}px ui-monospace,monospace`;ctx.fillText(s,x,y);};
+const text = (ctx,s,x,y,fill='#9aacc2',align='left',size=11) => {ctx.fillStyle=fill;ctx.textAlign=align;ctx.font=`${size}px ui-monospace,monospace`;ctx.fillText(t(s),x,y);};
 function setup(canvas) {
   const {width,height} = canvas.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1,2);
   const w=Math.max(1,Math.round(width*dpr)), h=Math.max(1,Math.round(height*dpr));
@@ -21,7 +22,7 @@ export class SensorPlot {
       if(this.drag){const d=this.drag,dx=e.offsetX-d.x,dy=e.offsetY-d.y;d.moved ||= Math.hypot(e.offsetX-d.startX,e.offsetY-d.startY)>4;
         if(d.moved && !this.is2D()){if(d.pan){this.pan[0]+=dx;this.pan[1]+=dy;}else{this.yaw+=dx*.008;this.elevation=clamp(this.elevation+dy*.006,.14,Math.PI/2);}}
         d.x=e.offsetX;d.y=e.offsetY;
-      } else {const i=this.pick(e.offsetX,e.offsetY);const s=this.getState();canvas.title=i===null?'':`Taxel ${i} · row ${i%s.grid.rows}, column ${Math.floor(i/s.grid.rows)} · ${Number.isFinite(s.values[i])?s.values[i].toFixed(3):'undefined'}`;}
+      } else {const i=this.pick(e.offsetX,e.offsetY);const s=this.getState();canvas.title=i===null?'':t(`Taxel ${i} · row ${i%s.grid.rows}, column ${Math.floor(i/s.grid.rows)} · ${Number.isFinite(s.values[i])?s.values[i].toFixed(3):'undefined'}`);}
     });
     canvas.addEventListener('pointerup',e=>{if(this.drag&&!this.drag.moved){const i=this.pick(e.offsetX,e.offsetY);if(i!==null)this.select(i);}this.drag=null;});
     canvas.addEventListener('pointercancel',()=>this.drag=null);
@@ -117,10 +118,11 @@ export class SensorPlot {
 export class TracePlot {
   constructor(canvas,getState,detail,setWindow){this.canvas=canvas;this.getState=getState;this.detail=detail;this.setWindow=setWindow;this.hover=null;
     canvas.addEventListener('wheel',e=>{e.preventDefault();setWindow(clamp(getState().window*Math.exp(e.deltaY*.001),2,120));},{passive:false});
-    canvas.addEventListener('pointermove',e=>{this.hover=e.offsetX;});canvas.addEventListener('pointerleave',()=>{this.hover=null;detail.textContent='Hover for timestamp and value';});
+    canvas.addEventListener('pointermove',e=>{this.hover=e.offsetX;});canvas.addEventListener('pointerleave',()=>{this.hover=null;detail.textContent=t('Hover for timestamp and value');});
   }
   draw(){
     const {ctx,width:w,height:h}=setup(this.canvas),s=this.getState(),data=s.history;
+    if(this.hover===null)this.detail.textContent=t('Hover for timestamp and value');
     const left=65,right=w-20,top=15,bottom=h-27,end=data.length?data.at(-1).time:0,start=end-s.window*1000;
     const points=data.filter(p=>p.time>=start).map(p=>({p,v:displayed([p.raw[s.selected]],[p.baseline[s.selected]],s.mode)[0]}));
     let [lo,hi]=extent(points.map(x=>x.v));if(hi===lo){lo-=1;hi+=1;}else{const pad=(hi-lo)*.1;lo-=pad;hi+=pad;}
@@ -131,9 +133,9 @@ export class TracePlot {
     if(!points.length){text(ctx,'Signal history appears after connection',w/2,h/2,'#6f849f','center',11);return;}
     ctx.beginPath();let drawing=false;for(const {p,v} of points){if(!Number.isFinite(v)){drawing=false;continue;}if(drawing)ctx.lineTo(X(p.time),Y(v));else{ctx.moveTo(X(p.time),Y(v));drawing=true;}}
     ctx.strokeStyle='#71e6c2';ctx.lineWidth=1.6;ctx.stroke();
-    if(this.hover!==null&&this.hover>=left&&this.hover<=right){const t=start+(this.hover-left)/(right-left)*(end-start);let nearest=points[0];for(const p of points)if(Math.abs(p.p.time-t)<Math.abs(nearest.p.time-t))nearest=p;
+    if(this.hover!==null&&this.hover>=left&&this.hover<=right){const hoverTime=start+(this.hover-left)/(right-left)*(end-start);let nearest=points[0];for(const p of points)if(Math.abs(p.p.time-hoverTime)<Math.abs(nearest.p.time-hoverTime))nearest=p;
       const x=X(nearest.p.time);ctx.strokeStyle='#8298af';ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bottom);ctx.stroke();ctx.setLineDash([]);
-      this.detail.textContent=`${nearest.p.utc} · ${Number.isFinite(nearest.v)?nearest.v.toFixed(3):'undefined'}${s.mode==='percent'?' %':' units'}`;
+      this.detail.textContent=`${nearest.p.utc} · ${Number.isFinite(nearest.v)?nearest.v.toFixed(3):t('undefined')}${s.mode==='percent'?' %':` ${t('units')}`}`;
     }
   }
 }

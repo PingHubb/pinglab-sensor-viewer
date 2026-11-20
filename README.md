@@ -25,6 +25,15 @@ inside a webpage.
 **Try demo** provides clearly marked synthetic data without opening any USB port.
 The Quick guide inside the app explains the controls.
 
+Click **中文** at the top right for Simplified Chinese; click **English** to switch
+back. The browser remembers your choice. Switching languages does not reconnect
+the sensor or interrupt recording. Controls, status messages, plots and the guide
+are translated; serial commands and the CSV/JSON format stay unchanged.
+
+点击右上角 **中文** 可切换为简体中文，点击 **English** 可切回英文。
+浏览器会记住语言选择；切换语言不会中断连接或记录。
+ACM5 使用全部 **20 × 20 通道**，无需自动减 1。默认视图为平滑三维图，颜色范围为 ±500。
+
 ## Features retained from v0.2.2
 
 - Serial commands: `channelCheck`, `readRaw`, `readCal`, `updateCal`.
@@ -104,14 +113,19 @@ Node 20+ is used only for tests. Browsers run the native ES modules directly.
 - `src/session.js`: connection, baseline, acquisition and calibration sequencing.
 - `src/plots.js`: interactive canvas plots.
 - `src/app.js`: controls, session state and local downloads.
+- `src/i18n.js`: English/Simplified Chinese text, language preference and bindings.
 
 ## Verification
 
-30 automated checks pass, including fragmented serial input, malformed frames,
+34 automated checks pass, including fragmented serial input, malformed frames,
 slow-baud deadlines, cancellation while opening, disconnection, auto-baud fallback,
 calibration failure, baseline median, CSV metadata and signed calculations.
 ACM5 regressions cover all 400 channels, mandatory manual-grid checks, unstable
 channel responses, frame-size mismatches and explicit reference exclusion.
+Language checks cover translated page/accessibility labels, live messages,
+preference persistence (including blocked storage), and unchanged 400-channel
+recordings. Browser checks cover language switching during a 20×20 demo recording,
+saved language after reload, the Chinese guide, and CSV/JSON downloads.
 Browser demo checks cover plot modes, shared selection, recording, calibration,
 graph freezing, and actual CSV/JSON downloads. A downloaded 1,217-frame demo
 recording was checked for all 25 taxels and both baseline versions.
