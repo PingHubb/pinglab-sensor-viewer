@@ -1,6 +1,6 @@
-import {Grid,Recording,displayed,clamp,extent,colour} from './core.js';
-import {SensorSession} from './session.js';
-import {SensorPlot,TracePlot} from './plots.js';
+import {Grid,Recording,displayed,clamp,extent,colour} from './core.js?v=0.1.1';
+import {SensorSession} from './session.js?v=0.1.1';
+import {SensorPlot,TracePlot} from './plots.js?v=0.1.1';
 const $=id=>document.getElementById(id),fmt=v=>Number.isFinite(v)?v.toFixed(3):'undefined';
 const state={grid:new Grid(5,5),raw:[],baseline:[],values:[],history:[],frozen:null,hasData:false,selected:12,mode:'difference',view:'smooth_3d',palette:'jet',range:500,gain:1,numbers:true,window:20,source:null};
 let session=null,sessionTask=null,ports=[],recording=null,completed=null,downloadURLs=[],saved=new Set(),connected=false,latest=0,rateStart=0,rateFrames=0,rate=0;
@@ -14,7 +14,7 @@ function readings(){
 }
 function controls(){
   const active=!!session;
-  for(const id of ['ports','refresh','baud','grid','rows','columns','demo','empty-demo'])$(id).disabled=active;
+  for(const id of ['ports','refresh','baud','grid','rows','columns','reference-column','demo','empty-demo'])$(id).disabled=active;
   $('connect').disabled=active||!('serial'in navigator)||!isSecureContext;
   $('disconnect').disabled=!active;$('calibrate').disabled=!connected||!!session?.calibrationRequested;
   $('record').disabled=!connected||!!completed;
@@ -34,9 +34,10 @@ async function start(demo){
   try{grid=inputGrid();if(!demo){if(!navigator.serial)throw new Error('Use desktop Chrome or Edge for USB access.');port=$('ports').value==='new'?await navigator.serial.requestPort():ports[Number($('ports').value)];if(!port)throw new Error('Refresh ports and select the sensor.');}}
   catch(e){note(e.name==='NotFoundError'?'No port selected. Ready when you are.':e.message);return;}
   if(session)return;
-  setConnection('CONNECTING');let failure=null;
-  session=new SensorSession({port,baud:Number($('baud').value),grid,demo,onStatus:note,
+  setConnection('CHECKING');$('channel-status').textContent=demo?'Demo · no hardware channel check':'Checking channels and frame size…';let failure=null;
+  session=new SensorSession({port,baud:Number($('baud').value),grid,demo,excludeReferenceColumn:$('reference-column').checked,onStatus:note,
     onConnect:(g,source)=>{state.grid=g;state.source=source;state.history=[];state.frozen=null;$('freeze').checked=false;state.hasData=false;state.raw=[];state.baseline=[];state.values=[];connected=true;
+      $('channel-status').textContent=source.demo?`Demo grid: ${g.rows} rows × ${g.columns} columns`:`Verified: ${g.rows} rows × ${g.columns} columns · ${source.channels.reference_column_excluded?'reference excluded':'all channels'}`;
       $('selected').max=g.size-1;selected(Math.floor(g.size/2));$('grid-title').textContent=`${g.rows} × ${g.columns} · ${g.size} taxels`;
       $('empty').hidden=true;$('source-badge').textContent=demo?'DEMO · SYNTHETIC DATA':'LIVE · USB SERIAL';setConnection(demo?'DEMO':'CONNECTED',demo?'demo':'live');rateStart=performance.now();rateFrames=0;rate=0;controls();},
     onCalibration:success=>{if(success){state.history=[];state.frozen=null;$('freeze').checked=false;}controls();},
@@ -50,6 +51,7 @@ async function start(demo){
   try{await sessionTask;}catch(e){failure=e.message;}
   finally{
     connected=false;session=null;sessionTask=null;if(recording)finishRecording(failure?'connection error':'disconnected');setConnection('OFFLINE');$('source-badge').textContent=state.hasData?'OFFLINE · LAST FRAME':'NO SENSOR CONNECTED';controls();
+    if(failure)$('channel-status').textContent='Connection failed · see the message below or connection log.';
     if(!state.hasData)$('empty').hidden=false;note(failure?`Disconnected: ${failure}`:'Disconnected. Last readings retained.');
   }
 }

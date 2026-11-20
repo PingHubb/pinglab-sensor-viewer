@@ -1,4 +1,4 @@
-import {clamp, colour, extent, normalise, interpolate, displayed} from './core.js';
+import {clamp, colour, extent, normalise, interpolate, displayed} from './core.js?v=0.1.1';
 const css = rgb => `rgb(${rgb.map(Math.round).join(',')})`;
 const text = (ctx,s,x,y,fill='#9aacc2',align='left',size=11) => {ctx.fillStyle=fill;ctx.textAlign=align;ctx.font=`${size}px ui-monospace,monospace`;ctx.fillText(s,x,y);};
 function setup(canvas) {

@@ -12,7 +12,9 @@ inside a webpage.
 1. Open the website in **desktop Chrome or Edge**.
 2. Plug in the serial/Arduino/ESP32 sensor controller. Close the Windows viewer,
    Arduino Serial Monitor and other software using its port.
-3. Choose Auto baud and Auto grid, or your known settings. Click **Connect sensor**
+3. Choose Auto baud and Auto grid, or your known settings. For ACM5, leave
+   **Exclude last column (reference)** unchecked: all 20×20 channels are used.
+   Click **Connect sensor**
    and select the correct device in the browser's permission dialog.
 4. Keep the sensor untouched and click **Update Calibration**.
 5. Explore the views and click a taxel to inspect its signal. Arrow keys move the
@@ -29,7 +31,14 @@ The Quick guide inside the app explains the controls.
 - Auto baud (115200 then 9600), plus explicit baud settings.
 - Auto grid, 5×5, 8×10, 20×20 and custom grids up to 1,600 taxels.
 - Column-major indexing: `index = column * rows + row`; row 0 is at the top.
-- Optional trailing reference column removal, including the legacy 10×9 payload.
+- Full reported channel counts by default: ACM5 drive 20 / sense 20 → 20×20.
+- Explicit reference-column exclusion for controllers that actually have one.
+- Mandatory channel verification even with a manual grid: two consecutive matching
+  replies before the first raw read; exact reported payload length checked before
+  connected status, calibration or streaming. Invalid/unstable replies and manual
+  grid mismatches stop the connection with an explanation.
+- Labelled firmware replies and exact legacy numeric pairs are accepted; incidental
+  numbers in boot/error/debug messages are ignored.
 - Signed raw-minus-baseline, raw signal, baseline, and signed percentage.
   A zero baseline produces an undefined percentage, never a fabricated zero.
 - Smooth Map, Smooth 3D, 3D Point Grid, 3D Surface, 3D Heatmap and 2D Heatmap.
@@ -98,9 +107,11 @@ Node 20+ is used only for tests. Browsers run the native ES modules directly.
 
 ## Verification
 
-19 automated checks pass, including fragmented serial input, malformed frames,
+30 automated checks pass, including fragmented serial input, malformed frames,
 slow-baud deadlines, cancellation while opening, disconnection, auto-baud fallback,
 calibration failure, baseline median, CSV metadata and signed calculations.
+ACM5 regressions cover all 400 channels, mandatory manual-grid checks, unstable
+channel responses, frame-size mismatches and explicit reference exclusion.
 Browser demo checks cover plot modes, shared selection, recording, calibration,
 graph freezing, and actual CSV/JSON downloads. A downloaded 1,217-frame demo
 recording was checked for all 25 taxels and both baseline versions.
@@ -108,6 +119,11 @@ recording was checked for all 25 taxels and both baseline versions.
 **Real USB sensor behavior and equivalence on your Windows hardware still require
 an end-to-end test.** Compare a known corner, untouched baseline, signed response,
 calibration and a short recording against Windows v0.2.2 before relying on it.
+
+Version 0.1.1 corrects the original automatic subtraction of one drive column.
+Firmware channel counts describe the full grid; do not exclude a reference column
+for ACM5. The JSON source metadata records the reported drive/sense counts,
+verification count, exact payload size and whether reference exclusion was used.
 
 The protocol and numerical behavior were ported from the source included in
 `PingLab-Sensor-Viewer-Windows-x64-3D-v0.2.2.zip`. The Python/Qt runtime and Windows

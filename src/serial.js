@@ -1,6 +1,15 @@
 // A single command owner. Only complete lines/frames may become measurements.
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 export const parseInts = line => line.trim().split(/\s+/).filter(s => /^[+-]?\d+$/.test(s)).map(Number).filter(Number.isSafeInteger);
+// Accept the firmware's labelled reply, or an exact legacy numeric pair.
+// Boot/debug lines containing incidental numbers are not channel responses.
+export function parseChannelCheck(line) {
+  const match = line.trim().match(/^channelDrive:\s*(\d+)\s+channelSensor:\s*(\d+)$/i)
+    || line.trim().match(/^(\d+)\s+(\d+)$/);
+  if (!match) return null;
+  const values = match.slice(1).map(Number);
+  return values.every(v => Number.isSafeInteger(v) && v > 0) ? values : null;
+}
 export function takePayload(values, expected = 0, allowUnframed = false) {
   let start = null, frames = [];
   for (let i = 0; i+1 < values.length; i++) {
@@ -70,9 +79,13 @@ export class SerialClient {
         if (this.failure) throw this.failure;
         const line = this.lines.shift();
         if (line === undefined) { await delay(4); continue; }
+        if (command === 'channelCheck') {
+          const channels = parseChannelCheck(line);
+          if (channels) return channels;
+          continue;
+        }
         const ints = parseInts(line);
         if (!ints.length) continue;
-        if (command === 'channelCheck') return ints;
         const fresh = !pending.length;
         pending.push(...ints);
         const [payload, rest] = takePayload(pending,count,fresh);

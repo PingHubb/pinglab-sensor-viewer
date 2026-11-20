@@ -1,12 +1,33 @@
-import {Grid,medianFrames} from './core.js';
-import {SerialClient,delay,responseTimeout} from './serial.js';
+import {Grid,medianFrames} from './core.js?v=0.1.1';
+import {SerialClient,delay,responseTimeout} from './serial.js?v=0.1.1';
 export class SensorSession {
-  constructor({port=null,baud=0,grid=null,demo=false,onStatus=()=>{},onConnect=()=>{},onPacket=()=>{},onCalibration=()=>{},clientFactory=(port,baud)=>new SerialClient(port,baud)}){
-    Object.assign(this,{port,baud,grid,demo,onStatus,onConnect,onPacket,onCalibration});
+  constructor({port=null,baud=0,grid=null,demo=false,excludeReferenceColumn=false,onStatus=()=>{},onConnect=()=>{},onPacket=()=>{},onCalibration=()=>{},clientFactory=(port,baud)=>new SerialClient(port,baud)}){
+    Object.assign(this,{port,baud,grid,demo,excludeReferenceColumn,onStatus,onConnect,onPacket,onCalibration});
     this.clientFactory=clientFactory;this.stopped=false;this.calibrationRequested=false;this.client=null;this.version=1;this.sequence=0;
   }
   check(){if(this.stopped)throw new Error('Connection cancelled.');}
   async sleep(ms){const end=performance.now()+ms;while(!this.stopped&&performance.now()<end)await delay(Math.min(20,end-performance.now()));this.check();}
+  async verifyChannels(client) {
+    let previous = null;
+    this.onStatus('Checking sensor channels before acquisition…');
+    for (let attempt = 0; attempt < 5; attempt++) {
+      this.check();
+      const channels = await client.command('channelCheck', {timeout:1000});
+      this.check();
+      let grid;
+      try { grid = Grid.fromChannels(channels, {excludeReferenceColumn:this.excludeReferenceColumn}); }
+      catch { previous = null; await this.sleep(150); continue; }
+      if (previous && channels.every((value, i) => value === previous[i])) {
+        if (this.grid && (this.grid.rows !== grid.rows || this.grid.columns !== grid.columns))
+          throw new Error(`Selected grid ${this.grid.rows} × ${this.grid.columns} disagrees with verified sensor grid ${grid.rows} × ${grid.columns}. Choose Auto or the matching grid. Only exclude a reference column if your sensor has one.`);
+        this.onStatus(`Channels verified twice: drive ${channels[0]}, sense ${channels[1]} → ${grid.rows} rows × ${grid.columns} columns${this.excludeReferenceColumn ? ' (last reference column excluded)' : ' (all channels)'}. Checking first frame…`);
+        return {grid, channels};
+      }
+      previous = channels;
+      await this.sleep(150);
+    }
+    throw new Error('Channel check failed: no two consecutive matching valid replies. Acquisition has not started. Check the sensor, cable and baud rate, then reconnect.');
+  }
   async connect(){
     if(this.demo){this.grid ||= new Grid(5,5);this.baseline=Array(this.grid.size).fill(1000);return {port:'DEMO',baud:0,demo:true,baseline_source:'synthetic baseline'};}
     const rates=this.baud?[this.baud]:[115200,9600],errors=[];
@@ -14,13 +35,14 @@ export class SensorSession {
       this.check();this.onStatus(`Opening sensor at ${baud.toLocaleString()} baud…`);
       const client=this.client=this.clientFactory(this.port,baud);
       try{
-        await client.open();await this.sleep(2000);client.discard();let grid=this.grid;
-        if(!grid)for(let i=0;i<3&&!grid;i++){try{grid=Grid.fromChannels(await client.command('channelCheck',{timeout:700}));}catch{await this.sleep(150);}}
-        if(!grid)throw new Error('Grid detection failed. Select your physical grid manually, then reconnect.');
+        await client.open();await this.sleep(2000);client.discard();
+        const {grid,channels}=await this.verifyChannels(client);
+        const payloadValues=channels[0]*channels[1];
         let values=null;
-        for(let i=0;i<3&&!values;i++){this.check();values=await client.command('readRaw',{timeout:responseTimeout(grid.rows*(grid.columns+1)+20,baud)});}
+        for(let i=0;i<3&&!values;i++){this.check();values=await client.command('readRaw',{timeout:responseTimeout(payloadValues,baud)});}
         if(!values)throw new Error('No complete frames. Check firmware, baud rate and cable.');
-        const raw=grid.extract(values);client.expected=values.length;
+        if(values.length!==payloadValues)throw new Error(`Channel/frame mismatch: channelCheck reports drive ${channels[0]} × sense ${channels[1]} (${payloadValues} values), but the frame contains ${values.length}. Acquisition has not started.`);
+        const raw=grid.extract(values);client.expected=payloadValues;
         this.check();let calibration=await client.command('readCal'),origin='stored sensor baseline';
         if(calibration)this.baseline=grid.extract(calibration);
         else{
@@ -30,7 +52,8 @@ export class SensorSession {
           this.baseline=medianFrames(frames);origin='20-frame software baseline';
         }
         this.grid=grid;this.baud=baud;
-        return {port:'Web Serial',usb:this.port.getInfo(),baud,demo:false,baseline_source:origin};
+        return {port:'Web Serial',usb:this.port.getInfo(),baud,demo:false,baseline_source:origin,
+          channels:{drive:channels[0],sense:channels[1],reference_column_excluded:this.excludeReferenceColumn,payload_values:payloadValues,verified_reads:2}};
       }catch(e){await client.close();errors.push(e.message);this.check();}
     }
     throw new Error(errors.join(' / '));

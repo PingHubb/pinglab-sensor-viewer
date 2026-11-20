@@ -13,9 +13,11 @@ export class Grid {
       throw new Error(`Frame does not match ${this.rows} × ${this.columns}. Choose the correct grid and reconnect.`);
     return Array.from(values).slice(0, this.size);
   }
-  static fromChannels(values) {
-    if (!values || values.length !== 2) throw new Error('Grid detection failed. Select a grid manually.');
-    return new Grid(values[1], values[0] - 1);
+  static fromChannels(values, {excludeReferenceColumn = false} = {}) {
+    if (!values || values.length !== 2 || !values.every(Number.isInteger))
+      throw new Error('Invalid channelCheck response. Expected drive and sense counts.');
+    // Channel counts describe the complete grid. Never silently drop a column.
+    return new Grid(values[1], values[0] - (excludeReferenceColumn ? 1 : 0));
   }
 }
 export function displayed(raw, baseline, mode) {
